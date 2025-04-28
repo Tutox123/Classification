@@ -33,8 +33,8 @@ def load_data(uploaded_file):
             st.error(f"❌ Colonnes manquantes : {', '.join(missing_cols)}")
             st.stop()
 
-        # Conversion et calculs
-        df['Date'] = pd.to_datetime(df['Date'])
+        # Conversion et calculs - Utilisation de dayfirst=True pour gérer le format européen (jour/mois/année)
+        df['Date'] = pd.to_datetime(df['Date'], dayfirst=True)
         df['Year'] = df['Date'].dt.year
         df['Month'] = df['Date'].dt.month
         df['Week'] = df['Date'].dt.isocalendar().week
@@ -143,23 +143,50 @@ if uploaded_file:
     
     # Tendances temporelles
     st.subheader("Analyse temporelle")
-    time_group = {
-        "Journalier": 'Date',
-        "Hebdomadaire": 'Week',
-        "Mensuel": 'Month',
-        "Trimestriel": pd.PeriodIndex(filtered_df['Date'], freq='Q'),
-        "Annuel": 'Year'
-    }[time_granularity]
     
-    time_analysis = filtered_df.groupby(time_group).agg({
-        'Total Sales': 'sum',
-        'Profit': 'sum',
-        'Quantity': 'sum'
-    }).reset_index()
+    # Gestion correcte des regroupements temporels
+    if time_granularity == "Journalier":
+        time_analysis = filtered_df.groupby('Date').agg({
+            'Total Sales': 'sum',
+            'Profit': 'sum',
+            'Quantity': 'sum'
+        }).reset_index()
+        x_axis = 'Date'
+    elif time_granularity == "Hebdomadaire":
+        filtered_df['Year_Week'] = filtered_df['Date'].dt.strftime('%Y-%U')
+        time_analysis = filtered_df.groupby('Year_Week').agg({
+            'Total Sales': 'sum',
+            'Profit': 'sum',
+            'Quantity': 'sum'
+        }).reset_index()
+        x_axis = 'Year_Week'
+    elif time_granularity == "Mensuel":
+        filtered_df['Year_Month'] = filtered_df['Date'].dt.strftime('%Y-%m')
+        time_analysis = filtered_df.groupby('Year_Month').agg({
+            'Total Sales': 'sum',
+            'Profit': 'sum',
+            'Quantity': 'sum'
+        }).reset_index()
+        x_axis = 'Year_Month'
+    elif time_granularity == "Trimestriel":
+        filtered_df['Quarter'] = filtered_df['Date'].dt.to_period('Q').astype(str)
+        time_analysis = filtered_df.groupby('Quarter').agg({
+            'Total Sales': 'sum',
+            'Profit': 'sum',
+            'Quantity': 'sum'
+        }).reset_index()
+        x_axis = 'Quarter'
+    else:  # Annuel
+        time_analysis = filtered_df.groupby('Year').agg({
+            'Total Sales': 'sum',
+            'Profit': 'sum',
+            'Quantity': 'sum'
+        }).reset_index()
+        x_axis = 'Year'
     
     fig1 = px.area(
         time_analysis,
-        x=time_group,
+        x=x_axis,
         y='Total Sales',
         title=f"Évolution du CA ({time_granularity.lower()})",
         template="plotly_dark"
@@ -187,15 +214,18 @@ if uploaded_file:
         st.plotly_chart(fig2, use_container_width=True)
     
     with col2:
-        fig3 = px.choropleth(
-            geo_analysis,
-            locations='Country of sale',
-            locationmode='country names',
-            color='Total Sales',
-            title="CA par Pays",
-            template="plotly_dark"
-        )
-        st.plotly_chart(fig3, use_container_width=True)
+        try:
+            fig3 = px.choropleth(
+                geo_analysis,
+                locations='Country of sale',
+                locationmode='country names',
+                color='Total Sales',
+                title="CA par Pays",
+                template="plotly_dark"
+            )
+            st.plotly_chart(fig3, use_container_width=True)
+        except Exception as e:
+            st.warning(f"Impossible d'afficher la carte: {str(e)}")
     
     # Analyse des produits
     st.subheader("Performance des produits")
@@ -239,25 +269,29 @@ if uploaded_file:
     
     # Détection d'anomalies
     st.subheader("🚨 Détection d'anomalies")
-    anomalies = filtered_df[
-        (filtered_df['Margin %'] < filtered_df['Margin %'].quantile(0.05)) |
-        (filtered_df['Sale price'] > filtered_df['Sale price'].quantile(0.95))
-    ]
     
-    if not anomalies.empty:
-        st.dataframe(
-            anomalies.sort_values('Margin %').head(20),
-            column_config={
-                "Date": "Date",
-                "Product type": "Produit",
-                "Country of sale": "Pays",
-                "Total Sales": st.column_config.NumberColumn("CA", format="$%.2f"),
-                "Margin %": st.column_config.NumberColumn("Marge %", format="%.1f%%"),
-                "Sale price": st.column_config.NumberColumn("Prix", format="$%.2f")
-            }
-        )
-    else:
-        st.success("✅ Aucune anomalie détectée selon les critères actuels")
+    try:
+        anomalies = filtered_df[
+            (filtered_df['Margin %'] < filtered_df['Margin %'].quantile(0.05)) |
+            (filtered_df['Sale price'] > filtered_df['Sale price'].quantile(0.95))
+        ]
+        
+        if not anomalies.empty:
+            st.dataframe(
+                anomalies.sort_values('Margin %').head(20),
+                column_config={
+                    "Date": "Date",
+                    "Product type": "Produit",
+                    "Country of sale": "Pays",
+                    "Total Sales": st.column_config.NumberColumn("CA", format="$%.2f"),
+                    "Margin %": st.column_config.NumberColumn("Marge %", format="%.1f%%"),
+                    "Sale price": st.column_config.NumberColumn("Prix", format="$%.2f")
+                }
+            )
+        else:
+            st.success("✅ Aucune anomalie détectée selon les critères actuels")
+    except Exception as e:
+        st.warning(f"Impossible de calculer les anomalies: {str(e)}")
     
     # Export des données
     st.subheader("📤 Export des données")
@@ -277,6 +311,7 @@ if uploaded_file:
         buffer = BytesIO()
         with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
             filtered_df.to_excel(writer, index=False)
+        buffer.seek(0)  # Important pour que le téléchargement fonctionne
         st.download_button(
             label="Télécharger Excel",
             data=buffer,
