@@ -19,23 +19,35 @@ page = st.sidebar.radio("Go to", ["🏠 Home", "📈 Dashboard", "📥 Export Da
 # ---------------------------
 @st.cache_data
 def load_data(uploaded_file):
-    df = pd.read_csv(uploaded_file, sep=';', header=0)  # <- COMMA ',' separator
-    df.columns = df.columns.str.strip()
+    try:
+        # Spécifier explicitement le séparateur comme point-virgule
+        df = pd.read_csv(uploaded_file, sep=';', header=0, decimal=',', encoding='utf-8')
+        df.columns = df.columns.str.strip()
 
-    if 'Date' in df.columns:
-        df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-    else:
-        st.error("❌ 'Date' column is missing. Please check your CSV file.")
-        st.stop()  # stop execution if critical column is missing
+        if 'Date' in df.columns:
+            df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+        else:
+            st.error("❌ 'Date' column is missing. Please check your CSV file.")
+            st.stop()  # stop execution if critical column is missing
 
-    # Calculations
-    df['Total Sales'] = df['Quantity'] * df['Selling price']
-    df['Total Buying Cost'] = df['Quantity'] * df['Buying cost']
-    df['Gross Profit'] = df['Total Sales'] - df['Total Buying Cost']
-    df['Gross Margin %'] = (df['Gross Profit'] / df['Total Sales']) * 100
-    return df
+        # Vérifier que les colonnes nécessaires sont présentes
+        required_columns = ['Quantity', 'Selling price', 'Buying cost']
+        for col in required_columns:
+            if col not in df.columns:
+                st.error(f"❌ Column '{col}' is missing. Please check your CSV file.")
+                st.stop()
 
-uploaded_file = st.sidebar.file_uploader("Upload your CSV file", type=["csv"])
+        # Calculations
+        df['Total Sales'] = df['Quantity'] * df['Selling price']
+        df['Total Buying Cost'] = df['Quantity'] * df['Buying cost']
+        df['Gross Profit'] = df['Total Sales'] - df['Total Buying Cost']
+        df['Gross Margin %'] = (df['Gross Profit'] / df['Total Sales']) * 100
+        return df
+    except Exception as e:
+        st.error(f"❌ Error loading CSV file: {str(e)}")
+        st.stop()
+
+uploaded_file = st.sidebar.file_uploader("Upload your CSV file (semicolon separated)", type=["csv"])
 
 if uploaded_file:
     df = load_data(uploaded_file)
@@ -112,7 +124,8 @@ if uploaded_file:
     elif page == "📥 Export Data":
         st.title("📥 Download your filtered data")
         buffer = BytesIO()
-        filtered_df.to_csv(buffer, index=False, sep=',')
+        # Exporter avec le même séparateur (point-virgule)
+        filtered_df.to_csv(buffer, index=False, sep=';', encoding='utf-8')
         buffer.seek(0)
         st.download_button(label="Download CSV", data=buffer, file_name="filtered_data.csv", mime="text/csv")
 
@@ -147,5 +160,5 @@ if uploaded_file:
         st.dataframe(filtered_df)
 
 else:
-    st.warning("📥 Please upload a CSV file (comma separated).")
+    st.warning("📥 Please upload a CSV file (semicolon separated).")
 
