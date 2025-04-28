@@ -19,7 +19,7 @@ page = st.sidebar.radio("Go to", ["🏠 Home", "📈 Dashboard", "📥 Export Da
 # ---------------------------
 @st.cache_data
 def load_data(uploaded_file):
-    df = pd.read_csv(uploaded_file, sep=',', header=0)  # <- COMMA ',' separator
+    df = pd.read_csv(uploaded_file, sep=';', header=0)  # <- COMMA ',' separator
     df.columns = df.columns.str.strip()
 
     if 'Date' in df.columns:
