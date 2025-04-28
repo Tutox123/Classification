@@ -19,7 +19,7 @@ page = st.sidebar.radio("Go to", ["🏠 Home", "📈 Dashboard", "📥 Export Da
 # ---------------------------
 @st.cache_data
 def load_data(uploaded_file):
-    df = pd.read_csv(uploaded_file, sep=';')
+    df = pd.read_csv(uploaded_file, sep=',')
     df.columns = df.columns.str.strip()
     df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
     df['Total Sales'] = df['Quantity'] * df['Selling price']
