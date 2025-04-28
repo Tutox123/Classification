@@ -20,7 +20,6 @@ page = st.sidebar.radio("Go to", ["🏠 Home", "📈 Dashboard", "📥 Export Da
 @st.cache_data
 def load_data(uploaded_file):
     try:
-        # Spécifier explicitement le séparateur comme point-virgule
         df = pd.read_csv(uploaded_file, sep=';', header=0, decimal=',', encoding='utf-8')
         df.columns = df.columns.str.strip()
 
@@ -28,9 +27,9 @@ def load_data(uploaded_file):
             df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
         else:
             st.error("❌ 'Date' column is missing. Please check your CSV file.")
-            st.stop()  # stop execution if critical column is missing
+            st.stop()
 
-        # Vérifier que les colonnes nécessaires sont présentes
+        # Verify required numeric columns exist
         required_columns = ['Quantity', 'Selling price', 'Buying cost']
         for col in required_columns:
             if col not in df.columns:
@@ -69,7 +68,8 @@ if uploaded_file:
         filtered_df = filtered_df[filtered_df['Code country'].isin(selected_country)]
     if selected_ordering:
         filtered_df = filtered_df[filtered_df['Ordering method'].isin(selected_ordering)]
-    filtered_df = filtered_df[(filtered_df['Date'] >= pd.to_datetime(selected_date[0])) & (filtered_df['Date'] <= pd.to_datetime(selected_date[1]))]
+    filtered_df = filtered_df[(filtered_df['Date'] >= pd.to_datetime(selected_date[0])) & 
+                            (filtered_df['Date'] <= pd.to_datetime(selected_date[1]))]
 
     # KPI Calculations
     total_sales = filtered_df['Total Sales'].sum()
@@ -98,7 +98,7 @@ if uploaded_file:
         with col1:
             st.metric("💰 Total Sales", f"${total_sales:,.2f}")
         with col2:
-            st.metric("📦 Total Quantity", f"{total_quantity}")
+            st.metric("📦 Total Quantity", f"{total_quantity:,}")
         with col3:
             st.metric("📈 Gross Margin %", f"{gross_margin:.2f}%")
 
@@ -107,27 +107,45 @@ if uploaded_file:
 
         st.markdown("---")
 
-        sales_time = filtered_df.groupby(filtered_df['Date'].dt.to_period('M')).sum().reset_index()
-        sales_time['Date'] = sales_time['Date'].dt.to_timestamp()
+        try:
+            # Sales over time chart
+            sales_time = filtered_df.set_index('Date').resample('M').agg({
+                'Total Sales': 'sum',
+                'Quantity': 'sum'
+            }).reset_index()
+            
+            fig1 = px.area(sales_time, x='Date', y='Total Sales', 
+                          title="Sales Over Time", template="plotly_dark")
+            st.plotly_chart(fig1, use_container_width=True)
 
-        fig1 = px.area(sales_time, x='Date', y='Total Sales', title="Sales Over Time", template="plotly_dark")
-        st.plotly_chart(fig1, use_container_width=True)
+            # Top countries chart
+            top_countries = filtered_df.groupby('Code country').agg({
+                'Total Sales': 'sum'
+            }).sort_values('Total Sales', ascending=False).head(5).reset_index()
+            
+            fig2 = px.bar(top_countries, x='Code country', y='Total Sales', 
+                         title="Top 5 Countries", template="plotly_dark")
+            st.plotly_chart(fig2, use_container_width=True)
 
-        top_countries = filtered_df.groupby('Code country').sum().sort_values('Total Sales', ascending=False).head(5).reset_index()
-        fig2 = px.bar(top_countries, x='Code country', y='Total Sales', title="Top 5 Countries", template="plotly_dark")
-        st.plotly_chart(fig2, use_container_width=True)
+            # Ordering method chart
+            ordering_sales = filtered_df.groupby('Ordering method').agg({
+                'Total Sales': 'sum'
+            }).reset_index()
+            
+            fig3 = px.pie(ordering_sales, values='Total Sales', names='Ordering method', 
+                         title='Sales by Ordering Method', template="plotly_dark")
+            st.plotly_chart(fig3, use_container_width=True)
 
-        ordering_sales = filtered_df.groupby('Ordering method').sum().reset_index()
-        fig3 = px.pie(ordering_sales, values='Total Sales', names='Ordering method', title='Sales by Ordering Method', template="plotly_dark")
-        st.plotly_chart(fig3, use_container_width=True)
+        except Exception as e:
+            st.error(f"Error creating charts: {str(e)}")
 
     elif page == "📥 Export Data":
         st.title("📥 Download your filtered data")
         buffer = BytesIO()
-        # Exporter avec le même séparateur (point-virgule)
         filtered_df.to_csv(buffer, index=False, sep=';', encoding='utf-8')
         buffer.seek(0)
-        st.download_button(label="Download CSV", data=buffer, file_name="filtered_data.csv", mime="text/csv")
+        st.download_button(label="Download CSV", data=buffer, 
+                          file_name="filtered_data.csv", mime="text/csv")
 
     elif page == "🚨 Alerts":
         st.title("🚨 Alerts & Anomalies")
@@ -138,27 +156,34 @@ if uploaded_file:
 
         if not low_margin.empty:
             st.warning(f"⚠️ {len(low_margin)} Products with Margin < 20%")
-            st.dataframe(low_margin)
+            st.dataframe(low_margin[['Type of Product', 'Gross Margin %', 'Total Sales']])
         
         if not negative_margin.empty:
             st.error(f"❌ {len(negative_margin)} Products with Negative Margin")
-            st.dataframe(negative_margin)
+            st.dataframe(negative_margin[['Type of Product', 'Gross Margin %', 'Total Sales']])
 
         if not overpriced.empty:
             st.info(f"💸 {len(overpriced)} Products Highly Priced (Top 5%)")
-            st.dataframe(overpriced)
+            st.dataframe(overpriced[['Type of Product', 'Selling price']])
 
     elif page == "📊 Detailed Analysis":
         st.title("📊 Deep Dive Analysis")
         st.subheader("Sales by Line of Product")
 
-        line_sales = filtered_df.groupby('Line of product').sum().reset_index()
-        fig4 = px.bar(line_sales, x='Line of product', y='Total Sales', title="Sales by Line of Product", template="plotly_dark")
-        st.plotly_chart(fig4, use_container_width=True)
+        try:
+            # Only aggregate numeric columns
+            numeric_cols = filtered_df.select_dtypes(include=['number']).columns.tolist()
+            line_sales = filtered_df.groupby('Line of product')[numeric_cols].sum().reset_index()
+            
+            fig4 = px.bar(line_sales, x='Line of product', y='Total Sales', 
+                         title="Sales by Line of Product", template="plotly_dark")
+            st.plotly_chart(fig4, use_container_width=True)
 
-        st.subheader("Raw Data View")
-        st.dataframe(filtered_df)
+            st.subheader("Raw Data View")
+            st.dataframe(filtered_df)
+
+        except Exception as e:
+            st.error(f"Error in detailed analysis: {str(e)}")
 
 else:
     st.warning("📥 Please upload a CSV file (semicolon separated).")
-
