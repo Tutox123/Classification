@@ -4,24 +4,31 @@ import plotly.express as px
 from io import BytesIO
 
 # ---------------------------
-# 0. Setup - Page Config
+# Setup - Page Config
 # ---------------------------
 st.set_page_config(page_title="Ultimate Sales Dashboard", layout="wide", page_icon="📊")
 
 # ---------------------------
-# 1. Sidebar Navigation
+# Sidebar Navigation
 # ---------------------------
 st.sidebar.title("Navigation")
 page = st.sidebar.radio("Go to", ["🏠 Home", "📈 Dashboard", "📥 Export Data", "🚨 Alerts", "📊 Detailed Analysis"])
 
 # ---------------------------
-# 2. Upload Data
+# Upload Data
 # ---------------------------
 @st.cache_data
 def load_data(uploaded_file):
-    df = pd.read_csv(uploaded_file, sep=',')
+    df = pd.read_csv(uploaded_file, sep=',', header=0)  # <- COMMA ',' separator
     df.columns = df.columns.str.strip()
-    df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+
+    if 'Date' in df.columns:
+        df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+    else:
+        st.error("❌ 'Date' column is missing. Please check your CSV file.")
+        st.stop()  # stop execution if critical column is missing
+
+    # Calculations
     df['Total Sales'] = df['Quantity'] * df['Selling price']
     df['Total Buying Cost'] = df['Quantity'] * df['Buying cost']
     df['Gross Profit'] = df['Total Sales'] - df['Total Buying Cost']
@@ -61,7 +68,6 @@ if uploaded_file:
     avg_selling_price = filtered_df['Selling price'].mean()
     avg_margin = filtered_df['Gross Margin %'].mean()
 
-    # Best and Worst sellers
     best_product = filtered_df.groupby('Type of Product')['Total Sales'].sum().idxmax()
     worst_product = filtered_df.groupby('Type of Product')['Total Sales'].sum().idxmin()
 
@@ -89,19 +95,16 @@ if uploaded_file:
 
         st.markdown("---")
 
-        # Sales over time
         sales_time = filtered_df.groupby(filtered_df['Date'].dt.to_period('M')).sum().reset_index()
         sales_time['Date'] = sales_time['Date'].dt.to_timestamp()
 
         fig1 = px.area(sales_time, x='Date', y='Total Sales', title="Sales Over Time", template="plotly_dark")
         st.plotly_chart(fig1, use_container_width=True)
 
-        # Top 5 Countries
         top_countries = filtered_df.groupby('Code country').sum().sort_values('Total Sales', ascending=False).head(5).reset_index()
         fig2 = px.bar(top_countries, x='Code country', y='Total Sales', title="Top 5 Countries", template="plotly_dark")
         st.plotly_chart(fig2, use_container_width=True)
 
-        # Sales by Ordering Method
         ordering_sales = filtered_df.groupby('Ordering method').sum().reset_index()
         fig3 = px.pie(ordering_sales, values='Total Sales', names='Ordering method', title='Sales by Ordering Method', template="plotly_dark")
         st.plotly_chart(fig3, use_container_width=True)
@@ -109,7 +112,7 @@ if uploaded_file:
     elif page == "📥 Export Data":
         st.title("📥 Download your filtered data")
         buffer = BytesIO()
-        filtered_df.to_csv(buffer, index=False, sep=';')
+        filtered_df.to_csv(buffer, index=False, sep=',')
         buffer.seek(0)
         st.download_button(label="Download CSV", data=buffer, file_name="filtered_data.csv", mime="text/csv")
 
@@ -134,9 +137,8 @@ if uploaded_file:
 
     elif page == "📊 Detailed Analysis":
         st.title("📊 Deep Dive Analysis")
-
-        # Analysis per Product Line
         st.subheader("Sales by Line of Product")
+
         line_sales = filtered_df.groupby('Line of product').sum().reset_index()
         fig4 = px.bar(line_sales, x='Line of product', y='Total Sales', title="Sales by Line of Product", template="plotly_dark")
         st.plotly_chart(fig4, use_container_width=True)
@@ -145,5 +147,5 @@ if uploaded_file:
         st.dataframe(filtered_df)
 
 else:
-    st.warning("Please upload a CSV file to continue.")
+    st.warning("📥 Please upload a CSV file (comma separated).")
 
