@@ -29,8 +29,7 @@ def load_data(uploaded_file):
             st.error("❌ 'Date' column is missing. Please check your CSV file.")
             st.stop()
 
-        # Verify required numeric columns exist
-        required_columns = ['Quantity', 'Selling price', 'Buying cost']
+        required_columns = ['Quantity', 'Selling price', 'Buying cost', 'Type of Product']
         for col in required_columns:
             if col not in df.columns:
                 st.error(f"❌ Column '{col}' is missing. Please check your CSV file.")
@@ -80,9 +79,6 @@ if uploaded_file:
     avg_selling_price = filtered_df['Selling price'].mean()
     avg_margin = filtered_df['Gross Margin %'].mean()
 
-    best_product = filtered_df.groupby('Type of Product')['Total Sales'].sum().idxmax()
-    worst_product = filtered_df.groupby('Type of Product')['Total Sales'].sum().idxmin()
-
     # ---------------------------
     # Pages
     # ---------------------------
@@ -102,13 +98,41 @@ if uploaded_file:
         with col3:
             st.metric("📈 Gross Margin %", f"{gross_margin:.2f}%")
 
-        st.success(f"🏆 Best Seller: **{best_product}**")
-        st.error(f"⚠️ Worst Seller: **{worst_product}**")
+        # Enhanced Product Performance Analysis
+        product_analysis = filtered_df.groupby('Type of Product').agg({
+            'Total Sales': 'sum',
+            'Quantity': 'sum',
+            'Gross Margin %': 'mean'
+        }).sort_values('Total Sales', ascending=False).reset_index()
+        
+        if len(product_analysis) > 0:
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.subheader("🏆 Top Performing Products")
+                top_products = product_analysis.head(3)
+                for i, row in top_products.iterrows():
+                    st.metric(
+                        label=f"#{i+1} {row['Type of Product']}",
+                        value=f"${row['Total Sales']:,.2f}",
+                        delta=f"{row['Gross Margin %']:.1f}% margin"
+                    )
+            
+            with col2:
+                st.subheader("⚠️ Underperforming Products")
+                bottom_products = product_analysis.tail(3).iloc[::-1]  # Reverse to show worst first
+                for i, row in bottom_products.iterrows():
+                    st.metric(
+                        label=f"#{len(product_analysis)-i} {row['Type of Product']}",
+                        value=f"${row['Total Sales']:,.2f}",
+                        delta=f"{row['Gross Margin %']:.1f}% margin",
+                        delta_color="inverse"
+                    )
 
         st.markdown("---")
 
+        # Sales Over Time Chart
         try:
-            # Sales over time chart
             sales_time = filtered_df.set_index('Date').resample('M').agg({
                 'Total Sales': 'sum',
                 'Quantity': 'sum'
@@ -117,8 +141,11 @@ if uploaded_file:
             fig1 = px.area(sales_time, x='Date', y='Total Sales', 
                           title="Sales Over Time", template="plotly_dark")
             st.plotly_chart(fig1, use_container_width=True)
+        except Exception as e:
+            st.error(f"Error creating sales over time chart: {str(e)}")
 
-            # Top countries chart
+        # Top Countries Chart
+        try:
             top_countries = filtered_df.groupby('Code country').agg({
                 'Total Sales': 'sum'
             }).sort_values('Total Sales', ascending=False).head(5).reset_index()
@@ -126,8 +153,11 @@ if uploaded_file:
             fig2 = px.bar(top_countries, x='Code country', y='Total Sales', 
                          title="Top 5 Countries", template="plotly_dark")
             st.plotly_chart(fig2, use_container_width=True)
+        except Exception as e:
+            st.error(f"Error creating countries chart: {str(e)}")
 
-            # Ordering method chart
+        # Ordering Method Chart
+        try:
             ordering_sales = filtered_df.groupby('Ordering method').agg({
                 'Total Sales': 'sum'
             }).reset_index()
@@ -135,55 +165,80 @@ if uploaded_file:
             fig3 = px.pie(ordering_sales, values='Total Sales', names='Ordering method', 
                          title='Sales by Ordering Method', template="plotly_dark")
             st.plotly_chart(fig3, use_container_width=True)
-
         except Exception as e:
-            st.error(f"Error creating charts: {str(e)}")
+            st.error(f"Error creating ordering method chart: {str(e)}")
 
     elif page == "📥 Export Data":
         st.title("📥 Download your filtered data")
         buffer = BytesIO()
         filtered_df.to_csv(buffer, index=False, sep=';', encoding='utf-8')
         buffer.seek(0)
-        st.download_button(label="Download CSV", data=buffer, 
-                          file_name="filtered_data.csv", mime="text/csv")
+        st.download_button(
+            label="Download CSV",
+            data=buffer,
+            file_name="filtered_data.csv",
+            mime="text/csv"
+        )
 
     elif page == "🚨 Alerts":
         st.title("🚨 Alerts & Anomalies")
 
+        # Low Margin Products
         low_margin = filtered_df[filtered_df['Gross Margin %'] < 20]
-        negative_margin = filtered_df[filtered_df['Gross Margin %'] < 0]
-        overpriced = filtered_df[filtered_df['Selling price'] > filtered_df['Selling price'].quantile(0.95)]
-
         if not low_margin.empty:
             st.warning(f"⚠️ {len(low_margin)} Products with Margin < 20%")
-            st.dataframe(low_margin[['Type of Product', 'Gross Margin %', 'Total Sales']])
+            st.dataframe(low_margin[['Type of Product', 'Gross Margin %', 'Total Sales']].sort_values('Gross Margin %'))
         
+        # Negative Margin Products
+        negative_margin = filtered_df[filtered_df['Gross Margin %'] < 0]
         if not negative_margin.empty:
             st.error(f"❌ {len(negative_margin)} Products with Negative Margin")
-            st.dataframe(negative_margin[['Type of Product', 'Gross Margin %', 'Total Sales']])
+            st.dataframe(negative_margin[['Type of Product', 'Gross Margin %', 'Total Sales']].sort_values('Gross Margin %'))
 
+        # Overpriced Products
+        overpriced = filtered_df[filtered_df['Selling price'] > filtered_df['Selling price'].quantile(0.95)]
         if not overpriced.empty:
-            st.info(f"💸 {len(overpriced)} Products Highly Priced (Top 5%)")
-            st.dataframe(overpriced[['Type of Product', 'Selling price']])
+            st.info(f"💸 {len(overpriced)} Top 5% Most Expensive Products")
+            st.dataframe(overpriced[['Type of Product', 'Selling price']].sort_values('Selling price', ascending=False))
 
     elif page == "📊 Detailed Analysis":
         st.title("📊 Deep Dive Analysis")
-        st.subheader("Sales by Line of Product")
-
+        
+        # Product Performance Details
+        st.subheader("Product Performance Breakdown")
         try:
-            # Only aggregate numeric columns
-            numeric_cols = filtered_df.select_dtypes(include=['number']).columns.tolist()
-            line_sales = filtered_df.groupby('Line of product')[numeric_cols].sum().reset_index()
+            product_details = filtered_df.groupby('Type of Product').agg({
+                'Total Sales': 'sum',
+                'Quantity': 'sum',
+                'Gross Margin %': 'mean',
+                'Selling price': 'mean'
+            }).sort_values('Total Sales', ascending=False).reset_index()
+            
+            st.dataframe(product_details.style.format({
+                'Total Sales': '${:,.2f}',
+                'Gross Margin %': '{:.1f}%',
+                'Selling price': '${:.2f}'
+            }))
+        except Exception as e:
+            st.error(f"Error generating product performance: {str(e)}")
+
+        # Sales by Line of Product
+        st.subheader("Sales by Line of Product")
+        try:
+            line_sales = filtered_df.groupby('Line of product').agg({
+                'Total Sales': 'sum',
+                'Quantity': 'sum'
+            }).sort_values('Total Sales', ascending=False).reset_index()
             
             fig4 = px.bar(line_sales, x='Line of product', y='Total Sales', 
                          title="Sales by Line of Product", template="plotly_dark")
             st.plotly_chart(fig4, use_container_width=True)
-
-            st.subheader("Raw Data View")
-            st.dataframe(filtered_df)
-
         except Exception as e:
-            st.error(f"Error in detailed analysis: {str(e)}")
+            st.error(f"Error creating line of product chart: {str(e)}")
+
+        # Raw Data View
+        st.subheader("Raw Data View")
+        st.dataframe(filtered_df)
 
 else:
     st.warning("📥 Please upload a CSV file (semicolon separated).")
