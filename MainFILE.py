@@ -1,239 +1,296 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 from io import BytesIO
+from datetime import datetime, timedelta
+import numpy as np
 
 # ---------------------------
-# Setup - Page Config
+# Configuration de la page
 # ---------------------------
-st.set_page_config(page_title="Ultimate Sales Dashboard", layout="wide", page_icon="📊")
+st.set_page_config(
+    page_title="Advanced Sales Analytics Dashboard",
+    layout="wide",
+    page_icon="📊",
+    initial_sidebar_state="expanded"
+)
 
 # ---------------------------
-# Sidebar Navigation
-# ---------------------------
-st.sidebar.title("Navigation")
-page = st.sidebar.radio("Go to", ["🏠 Home", "📈 Dashboard", "📥 Export Data", "🚨 Alerts", "📊 Detailed Analysis"])
-
-# ---------------------------
-# Upload Data
+# Fonctions utilitaires
 # ---------------------------
 @st.cache_data
 def load_data(uploaded_file):
     try:
         df = pd.read_csv(uploaded_file, sep=';', header=0, decimal=',', encoding='utf-8')
         df.columns = df.columns.str.strip()
-
-        # Vérification des colonnes requises avec les nouveaux noms
+        
+        # Vérification des colonnes requises
         required_columns = ['Date', 'Product type', 'Product line', 'Quantity', 
                           'Sale price', 'Purchase cost', 'Ordering method', 'Country of sale']
-        
         missing_cols = [col for col in required_columns if col not in df.columns]
         if missing_cols:
-            st.error(f"❌ Colonnes manquantes: {', '.join(missing_cols)}. Veuillez vérifier votre fichier CSV.")
+            st.error(f"❌ Colonnes manquantes : {', '.join(missing_cols)}")
             st.stop()
 
-        # Conversion de la date
-        df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-
-        # Calculs
+        # Conversion et calculs
+        df['Date'] = pd.to_datetime(df['Date'])
+        df['Year'] = df['Date'].dt.year
+        df['Month'] = df['Date'].dt.month
+        df['Week'] = df['Date'].dt.isocalendar().week
+        df['Day'] = df['Date'].dt.day_name()
+        
+        # Calculs financiers
         df['Total Sales'] = df['Quantity'] * df['Sale price']
-        df['Total Purchase Cost'] = df['Quantity'] * df['Purchase cost']
-        df['Gross Profit'] = df['Total Sales'] - df['Total Purchase Cost']
-        df['Gross Margin %'] = (df['Gross Profit'] / df['Total Sales']) * 100
+        df['Total Cost'] = df['Quantity'] * df['Purchase cost']
+        df['Profit'] = df['Total Sales'] - df['Total Cost']
+        df['Margin %'] = (df['Profit'] / df['Total Sales']) * 100
+        df['ROI'] = (df['Profit'] / df['Total Cost']) * 100
+        
+        # Segmentation clients/produits
+        df['Sales Quartile'] = pd.qcut(df['Total Sales'], q=4, labels=['Low', 'Medium', 'High', 'Very High'])
         
         return df
     except Exception as e:
-        st.error(f"❌ Erreur lors du chargement du fichier CSV: {str(e)}")
+        st.error(f"❌ Erreur de chargement : {str(e)}")
         st.stop()
 
-uploaded_file = st.sidebar.file_uploader("Upload your CSV file (semicolon separated)", type=["csv"])
+def display_kpi(title, value, delta=None, delta_type=None):
+    st.metric(
+        label=title,
+        value=value,
+        delta=delta,
+        delta_color=delta_type if delta_type else "normal"
+    )
+
+# ---------------------------
+# Interface utilisateur
+# ---------------------------
+st.sidebar.title("🔍 Navigation & Configuration")
+uploaded_file = st.sidebar.file_uploader("📤 Importer des données (CSV)", type=["csv"])
 
 if uploaded_file:
     df = load_data(uploaded_file)
-
-    # Filtres
-    with st.sidebar.expander("🔎 Filters", expanded=True):
-        selected_product = st.multiselect("Product type", options=df['Product type'].unique())
-        selected_country = st.multiselect("Country of sale", options=df['Country of sale'].unique())
-        selected_ordering = st.multiselect("Ordering method", options=df['Ordering method'].unique())
-        min_date = df['Date'].min()
-        max_date = df['Date'].max()
-        selected_date = st.date_input("Date Range", [min_date, max_date])
-
-    # Application des filtres
-    filtered_df = df.copy()
-    if selected_product:
-        filtered_df = filtered_df[filtered_df['Product type'].isin(selected_product)]
-    if selected_country:
-        filtered_df = filtered_df[filtered_df['Country of sale'].isin(selected_country)]
-    if selected_ordering:
-        filtered_df = filtered_df[filtered_df['Ordering method'].isin(selected_ordering)]
-    filtered_df = filtered_df[(filtered_df['Date'] >= pd.to_datetime(selected_date[0])) & 
-                            (filtered_df['Date'] <= pd.to_datetime(selected_date[1]))]
-
-    # Calcul des KPI
-    total_sales = filtered_df['Total Sales'].sum()
-    total_purchase_cost = filtered_df['Total Purchase Cost'].sum()
-    gross_profit = filtered_df['Gross Profit'].sum()
-    gross_margin = (gross_profit / total_sales) * 100 if total_sales else 0
-    total_quantity = filtered_df['Quantity'].sum()
-
-    # ---------------------------
-    # Pages
-    # ---------------------------
-    if page == "🏠 Home":
-        st.title("📊 Welcome to the Ultimate Dashboard")
-        st.write("Upload your file in the sidebar and start exploring your sales data interactively!")
-        st.image("https://media.giphy.com/media/L8K62iTDkzGX6/giphy.gif", width=400)
-
-    elif page == "📈 Dashboard":
-        st.title("📈 Dashboard Overview")
-
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("💰 Total Sales", f"${total_sales:,.2f}")
-        with col2:
-            st.metric("📦 Total Quantity", f"{total_quantity:,}")
-        with col3:
-            st.metric("📈 Gross Margin %", f"{gross_margin:.2f}%")
-
-        # Analyse des performances des produits
-        product_analysis = filtered_df.groupby('Product type').agg({
-            'Total Sales': 'sum',
-            'Quantity': 'sum',
-            'Gross Margin %': 'mean'
-        }).sort_values('Total Sales', ascending=False).reset_index()
+    
+    with st.sidebar.expander("⏱ Filtre temporel", expanded=True):
+        date_range = st.date_input(
+            "Période",
+            value=[df['Date'].min(), df['Date'].max()],
+            min_value=df['Date'].min(),
+            max_value=df['Date'].max()
+        )
         
-        if len(product_analysis) > 0:
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.subheader("🏆 Top Performing Products")
-                top_products = product_analysis.head(3)
-                for i, row in top_products.iterrows():
-                    st.metric(
-                        label=f"#{i+1} {row['Product type']}",
-                        value=f"${row['Total Sales']:,.2f}",
-                        delta=f"{row['Gross Margin %']:.1f}% margin"
-                    )
-            
-            with col2:
-                st.subheader("⚠️ Underperforming Products")
-                bottom_products = product_analysis.tail(3).iloc[::-1]
-                for i, row in bottom_products.iterrows():
-                    st.metric(
-                        label=f"#{len(product_analysis)-i} {row['Product type']}",
-                        value=f"${row['Total Sales']:,.2f}",
-                        delta=f"{row['Gross Margin %']:.1f}% margin",
-                        delta_color="inverse"
-                    )
-
-        st.markdown("---")
-
-        # Graphiques
-        try:
-            # Sales Over Time
-            sales_time = filtered_df.set_index('Date').resample('M').agg({
-                'Total Sales': 'sum',
-                'Quantity': 'sum'
-            }).reset_index()
-            
-            fig1 = px.area(sales_time, x='Date', y='Total Sales', 
-                          title="Sales Over Time", template="plotly_dark")
-            st.plotly_chart(fig1, use_container_width=True)
-
-            # Top Countries
-            top_countries = filtered_df.groupby('Country of sale').agg({
-                'Total Sales': 'sum'
-            }).sort_values('Total Sales', ascending=False).head(5).reset_index()
-            
-            fig2 = px.bar(top_countries, x='Country of sale', y='Total Sales', 
-                         title="Top 5 Countries", template="plotly_dark")
-            st.plotly_chart(fig2, use_container_width=True)
-
-            # Ordering Method
-            ordering_sales = filtered_df.groupby('Ordering method').agg({
-                'Total Sales': 'sum'
-            }).reset_index()
-            
-            fig3 = px.pie(ordering_sales, values='Total Sales', names='Ordering method', 
-                         title='Sales by Ordering Method', template="plotly_dark")
-            st.plotly_chart(fig3, use_container_width=True)
-
-        except Exception as e:
-            st.error(f"Error creating charts: {str(e)}")
-
-    elif page == "📥 Export Data":
-        st.title("📥 Download your filtered data")
+        time_granularity = st.selectbox(
+            "Granularité temporelle",
+            ["Journalier", "Hebdomadaire", "Mensuel", "Trimestriel", "Annuel"]
+        )
+    
+    with st.sidebar.expander("🌍 Filtres géographiques"):
+        countries = st.multiselect(
+            "Pays",
+            options=df['Country of sale'].unique(),
+            default=df['Country of sale'].unique()
+        )
+    
+    with st.sidebar.expander("📦 Filtres produits"):
+        product_types = st.multiselect(
+            "Type de produit",
+            options=df['Product type'].unique(),
+            default=df['Product type'].unique()
+        )
+        
+        product_lines = st.multiselect(
+            "Ligne de produit",
+            options=df['Product line'].unique(),
+            default=df['Product line'].unique()
+        )
+    
+    with st.sidebar.expander("💰 Filtres financiers"):
+        margin_range = st.slider(
+            "Marge (%)",
+            min_value=float(df['Margin %'].min()),
+            max_value=float(df['Margin %'].max()),
+            value=(float(df['Margin %'].min()), float(df['Margin %'].max()))
+        )
+    
+    # Application des filtres
+    filtered_df = df[
+        (df['Date'] >= pd.to_datetime(date_range[0])) &
+        (df['Date'] <= pd.to_datetime(date_range[1])) &
+        (df['Country of sale'].isin(countries)) &
+        (df['Product type'].isin(product_types)) &
+        (df['Product line'].isin(product_lines)) &
+        (df['Margin %'] >= margin_range[0]) &
+        (df['Margin %'] <= margin_range[1])
+    ]
+    
+    # ---------------------------
+    # Tableau de bord principal
+    # ---------------------------
+    st.title("📈 Tableau de bord analytique avancé")
+    
+    # KPIs principaux
+    st.subheader("Indicateurs clés de performance")
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        display_kpi("💰 CA Total", f"${filtered_df['Total Sales'].sum():,.0f}")
+    with col2:
+        display_kpi("📦 Quantité Totale", f"{filtered_df['Quantity'].sum():,}")
+    with col3:
+        display_kpi("📈 Marge Moyenne", f"{filtered_df['Margin %'].mean():.1f}%")
+    with col4:
+        display_kpi("🔄 ROI Moyen", f"{filtered_df['ROI'].mean():.1f}%")
+    
+    # Tendances temporelles
+    st.subheader("Analyse temporelle")
+    time_group = {
+        "Journalier": 'Date',
+        "Hebdomadaire": 'Week',
+        "Mensuel": 'Month',
+        "Trimestriel": pd.PeriodIndex(filtered_df['Date'], freq='Q'),
+        "Annuel": 'Year'
+    }[time_granularity]
+    
+    time_analysis = filtered_df.groupby(time_group).agg({
+        'Total Sales': 'sum',
+        'Profit': 'sum',
+        'Quantity': 'sum'
+    }).reset_index()
+    
+    fig1 = px.area(
+        time_analysis,
+        x=time_group,
+        y='Total Sales',
+        title=f"Évolution du CA ({time_granularity.lower()})",
+        template="plotly_dark"
+    )
+    st.plotly_chart(fig1, use_container_width=True)
+    
+    # Analyse géographique
+    st.subheader("Performance géographique")
+    geo_analysis = filtered_df.groupby('Country of sale').agg({
+        'Total Sales': 'sum',
+        'Profit': 'sum',
+        'Margin %': 'mean'
+    }).sort_values('Total Sales', ascending=False).reset_index()
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        fig2 = px.bar(
+            geo_analysis.head(10),
+            x='Country of sale',
+            y='Total Sales',
+            title="Top 10 Pays par CA",
+            color='Margin %',
+            template="plotly_dark"
+        )
+        st.plotly_chart(fig2, use_container_width=True)
+    
+    with col2:
+        fig3 = px.choropleth(
+            geo_analysis,
+            locations='Country of sale',
+            locationmode='country names',
+            color='Total Sales',
+            title="CA par Pays",
+            template="plotly_dark"
+        )
+        st.plotly_chart(fig3, use_container_width=True)
+    
+    # Analyse des produits
+    st.subheader("Performance des produits")
+    product_analysis = filtered_df.groupby('Product type').agg({
+        'Total Sales': 'sum',
+        'Profit': 'sum',
+        'Margin %': 'mean',
+        'Quantity': 'sum'
+    }).sort_values('Total Sales', ascending=False).reset_index()
+    
+    fig4 = px.treemap(
+        product_analysis,
+        path=['Product type'],
+        values='Total Sales',
+        color='Margin %',
+        title="Répartition du CA par type de produit",
+        template="plotly_dark"
+    )
+    st.plotly_chart(fig4, use_container_width=True)
+    
+    # Analyse de rentabilité
+    st.subheader("Analyse de rentabilité")
+    profitability = filtered_df.groupby(['Product type', 'Product line']).agg({
+        'Total Sales': 'sum',
+        'Profit': 'sum',
+        'Margin %': 'mean'
+    }).reset_index()
+    
+    fig5 = px.scatter(
+        profitability,
+        x='Total Sales',
+        y='Margin %',
+        size='Profit',
+        color='Product line',
+        hover_name='Product type',
+        log_x=True,
+        title="Matrice de rentabilité (CA vs Marge)",
+        template="plotly_dark"
+    )
+    st.plotly_chart(fig5, use_container_width=True)
+    
+    # Détection d'anomalies
+    st.subheader("🚨 Détection d'anomalies")
+    anomalies = filtered_df[
+        (filtered_df['Margin %'] < filtered_df['Margin %'].quantile(0.05)) |
+        (filtered_df['Sale price'] > filtered_df['Sale price'].quantile(0.95))
+    ]
+    
+    if not anomalies.empty:
+        st.dataframe(
+            anomalies.sort_values('Margin %').head(20),
+            column_config={
+                "Date": "Date",
+                "Product type": "Produit",
+                "Country of sale": "Pays",
+                "Total Sales": st.column_config.NumberColumn("CA", format="$%.2f"),
+                "Margin %": st.column_config.NumberColumn("Marge %", format="%.1f%%"),
+                "Sale price": st.column_config.NumberColumn("Prix", format="$%.2f")
+            }
+        )
+    else:
+        st.success("✅ Aucune anomalie détectée selon les critères actuels")
+    
+    # Export des données
+    st.subheader("📤 Export des données")
+    export_format = st.selectbox("Format d'export", ["CSV", "Excel", "JSON"])
+    
+    if export_format == "CSV":
         buffer = BytesIO()
         filtered_df.to_csv(buffer, index=False, sep=';', encoding='utf-8')
         buffer.seek(0)
         st.download_button(
-            label="Download CSV",
+            label="Télécharger CSV",
             data=buffer,
-            file_name="filtered_data.csv",
+            file_name="export_sales.csv",
             mime="text/csv"
         )
-
-    elif page == "🚨 Alerts":
-        st.title("🚨 Alerts & Anomalies")
-
-        # Low Margin Products
-        low_margin = filtered_df[filtered_df['Gross Margin %'] < 20]
-        if not low_margin.empty:
-            st.warning(f"⚠️ {len(low_margin)} Products with Margin < 20%")
-            st.dataframe(low_margin[['Product type', 'Gross Margin %', 'Total Sales']].sort_values('Gross Margin %'))
-        
-        # Negative Margin Products
-        negative_margin = filtered_df[filtered_df['Gross Margin %'] < 0]
-        if not negative_margin.empty:
-            st.error(f"❌ {len(negative_margin)} Products with Negative Margin")
-            st.dataframe(negative_margin[['Product type', 'Gross Margin %', 'Total Sales']].sort_values('Gross Margin %'))
-
-        # Overpriced Products
-        overpriced = filtered_df[filtered_df['Sale price'] > filtered_df['Sale price'].quantile(0.95)]
-        if not overpriced.empty:
-            st.info(f"💸 {len(overpriced)} Top 5% Most Expensive Products")
-            st.dataframe(overpriced[['Product type', 'Sale price']].sort_values('Sale price', ascending=False))
-
-    elif page == "📊 Detailed Analysis":
-        st.title("📊 Deep Dive Analysis")
-        
-        # Product Performance
-        st.subheader("Product Performance Breakdown")
-        try:
-            product_details = filtered_df.groupby('Product type').agg({
-                'Total Sales': 'sum',
-                'Quantity': 'sum',
-                'Gross Margin %': 'mean',
-                'Sale price': 'mean'
-            }).sort_values('Total Sales', ascending=False).reset_index()
-            
-            st.dataframe(product_details.style.format({
-                'Total Sales': '${:,.2f}',
-                'Gross Margin %': '{:.1f}%',
-                'Sale price': '${:.2f}'
-            }))
-        except Exception as e:
-            st.error(f"Error generating product performance: {str(e)}")
-
-        # Sales by Product Line
-        st.subheader("Sales by Product Line")
-        try:
-            line_sales = filtered_df.groupby('Product line').agg({
-                'Total Sales': 'sum',
-                'Quantity': 'sum'
-            }).sort_values('Total Sales', ascending=False).reset_index()
-            
-            fig4 = px.bar(line_sales, x='Product line', y='Total Sales', 
-                         title="Sales by Product Line", template="plotly_dark")
-            st.plotly_chart(fig4, use_container_width=True)
-        except Exception as e:
-            st.error(f"Error creating product line chart: {str(e)}")
-
-        # Raw Data View
-        st.subheader("Raw Data View")
-        st.dataframe(filtered_df)
+    elif export_format == "Excel":
+        buffer = BytesIO()
+        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
+            filtered_df.to_excel(writer, index=False)
+        st.download_button(
+            label="Télécharger Excel",
+            data=buffer,
+            file_name="export_sales.xlsx",
+            mime="application/vnd.ms-excel"
+        )
+    else:
+        st.download_button(
+            label="Télécharger JSON",
+            data=filtered_df.to_json(orient='records'),
+            file_name="export_sales.json",
+            mime="application/json"
+        )
 
 else:
-    st.warning("📥 Please upload a CSV file (semicolon separated).")
+    st.warning("Veuillez importer un fichier CSV pour commencer l'analyse")
+    st.image("https://media.giphy.com/media/L8K62iTDkzGX6/giphy.gif", width=400)
