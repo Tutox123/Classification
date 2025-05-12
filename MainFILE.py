@@ -3,7 +3,6 @@ import pandas as pd
 import plotly.express as px
 from PIL import Image
 import base64
-from streamlit_option_menu import option_menu
 
 # Configuración de la página
 st.set_page_config(
@@ -61,21 +60,35 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Función para crear el menú de navegación
+# Función para crear el menú de navegación nativo
 def create_nav_menu():
-    selected = option_menu(
-        menu_title=None,
-        options=["Inicio", "Servicios", "Mercado", "Aspectos Legales", "Sostenibilidad", "Contacto"],
-        icons=["house", "clipboard-pulse", "graph-up", "shield-check", "tree", "envelope"],
-        menu_icon="cast",
-        default_index=0,
-        orientation="horizontal",
-        styles={
-            "container": {"padding": "0!important", "background-color": "#f0f0f0"},
-            "icon": {"color": "#0083B8", "font-size": "14px"}, 
-            "nav-link": {"font-size": "14px", "text-align": "center", "margin":"0px", "--hover-color": "#e6f7ff"},
-            "nav-link-selected": {"background-color": "#0083B8"},
-        }
+    st.markdown("""
+    <style>
+    .stRadio > div {
+        display: flex;
+        justify-content: center;
+        background-color: #f0f0f0;
+        border-radius: 10px;
+        padding: 8px;
+    }
+    .stRadio label {
+        padding: 8px 16px;
+        border-radius: 5px;
+        margin: 0 5px;
+        text-align: center;
+    }
+    .stRadio input:checked + div {
+        background-color: #0083B8;
+        color: white;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    selected = st.radio(
+        "Navegación",
+        ["Inicio", "Servicios", "Mercado", "Aspectos Legales", "Sostenibilidad", "Contacto"],
+        label_visibility="collapsed",
+        horizontal=True
     )
     return selected
 
@@ -600,4 +613,5 @@ def main():
         contact_page()
 
 if __name__ == "__main__":
+    main()
     main()
