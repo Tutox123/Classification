@@ -2,8 +2,6 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from streamlit_option_menu import option_menu
-from PIL import Image
-import base64
 import time
 
 # Configuration de la page
@@ -94,20 +92,6 @@ def load_css():
             from { transform: translateX(-50px); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
         }
-        
-        /* Bouton animé */
-        .stButton>button {
-            border: 2px solid #0083B8;
-            color: white;
-            background-color: #0083B8;
-            transition: all 0.3s;
-        }
-        
-        .stButton>button:hover {
-            background-color: white;
-            color: #0083B8;
-            transform: scale(1.05);
-        }
     </style>
     """, unsafe_allow_html=True)
 
@@ -120,15 +104,6 @@ def show_header():
             <h1 class="main-header">MediPedido</h1>
             <p style="font-size: 1.5em; animation: fadeIn 2s ease;">La medicina que llega a tu puerta</p>
         </div>
-        """, unsafe_allow_html=True)
-        
-        # Effet de vague décoratif
-        st.markdown("""
-        <svg viewBox="0 0 1200 120" xmlns="http://www.w3.org/2000/svg" style="margin-bottom: -10px;">
-            <path d="M0,0V46.29c47.79,22.2,103.59,32.17,158,28,70.36-5.37,136.33-33.31,206.8-37.5C438.64,32.43,512.34,53.67,583,72.05c69.27,18,138.3,24.88,209.4,13.08,36.15-6,69.85-17.84,104.45-29.34C989.49,25,1113-14.29,1200,52.47V0Z" opacity=".25" fill="#0083B8"></path>
-            <path d="M0,0V15.81C13,36.92,27.64,56.86,47.69,72.05,99.41,111.27,165,111,224.58,91.58c31.15-10.15,60.09-26.07,89.67-39.8,40.92-19,84.73-46,130.83-49.67,36.26-2.85,70.9,9.42,98.6,31.56,31.77,25.39,62.32,62,103.63,73,40.44,10.79,81.35-6.69,119.13-24.28s75.16-39,116.92-43.05c59.73-5.85,113.28,22.88,168.9,38.84,30.2,8.66,59,6.17,87.09-7.5,22.43-10.89,48-26.93,60.65-49.24V0Z" opacity=".5" fill="#0083B8"></path>
-            <path d="M0,0V5.63C149.93,59,314.09,71.32,475.83,42.57c43-7.64,84.23-20.12,127.61-26.46,59-8.63,112.48,12.24,165.56,35.4C827.93,77.22,886,95.24,951.2,90c86.53-7,172.46-45.71,248.8-84.81V0Z" fill="#0083B8"></path>
-        </svg>
         """, unsafe_allow_html=True)
 
 # Navigation stylisée
@@ -145,7 +120,6 @@ def create_navigation():
             "container": {
                 "padding": "0!important", 
                 "background-color": "rgba(255,255,255,0.7)",
-                "backdrop-filter": "blur(10px)",
                 "border-radius": "10px",
                 "box-shadow": "0 4px 10px rgba(0,0,0,0.1)"
             },
@@ -168,13 +142,6 @@ def create_navigation():
 # Page d'accueil avec effets
 def home_page():
     st.markdown("<div class='section-header'>Bienvenido a MediPedido</div>", unsafe_allow_html=True)
-    
-    # Animation de texte
-    with st.empty():
-        for i in range(3):
-            st.markdown(f"<div style='font-size: 1.2em; animation: fadeIn 1s ease;'>🚀 {'Transformando' + '.'*i} la atención médica</div>", unsafe_allow_html=True)
-            time.sleep(0.5)
-        st.markdown("<div style='font-size: 1.2em;'>🚀 Transformando la atención médica con tecnología</div>", unsafe_allow_html=True)
     
     cols = st.columns([3, 2], gap="large")
     
@@ -203,7 +170,6 @@ def home_page():
 def services_page():
     st.markdown("<div class='section-header'>Nuestros Servicios</div>", unsafe_allow_html=True)
     
-    # Solution visuelle améliorée pour les services
     service_options = {
         "Consultas a Domicilio": {"icon": "🏠", "color": "#0088cc"},
         "Telemedicina": {"icon": "📱", "color": "#00aa88"},
@@ -223,62 +189,107 @@ def services_page():
                 text-align: center;
                 box-shadow: 0 4px 8px rgba(0,0,0,0.2);
                 transition: all 0.3s;
-                cursor: pointer;
                 margin-bottom: 20px;
                 height: 120px;
                 display: flex;
                 flex-direction: column;
                 justify-content: center;
-            " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+            ">
                 <div style="font-size: 2.5em; margin-bottom: 10px;">{config['icon']}</div>
                 <h3 style="margin: 0;">{name}</h3>
             </div>
             """, unsafe_allow_html=True)
+
+# Page Marché avec effets
+def market_page():
+    st.markdown("<div class='section-header'>Análisis del Mercado Argentino</div>", unsafe_allow_html=True)
     
-    # Contenu qui apparaît progressivement
-    with st.expander("Ver detalles de servicios", expanded=True):
-        st.markdown("""
-        <div style="animation: fadeIn 2s ease;">
-            <p>Descubre nuestra gama completa de servicios médicos innovadores:</p>
-            <ul>
-                <li>Consultas las 24 horas</li>
-                <li>Especialistas certificados</li>
-                <li>Cobertura con obras sociales</li>
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
+    # Graphique animé
+    data = pd.DataFrame({
+        'Año': [2020, 2021, 2022, 2023, 2024],
+        'Crecimiento (%)': [15, 22, 35, 42, 50]
+    })
+    
+    fig = px.line(
+        data, 
+        x='Año', 
+        y='Crecimiento (%)',
+        markers=True,
+        line_shape='spline',
+        title='Crecimiento del mercado de salud digital en Argentina'
+    )
+    
+    fig.update_layout(
+        hovermode="x unified",
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        xaxis=dict(showgrid=False),
+        yaxis=dict(showgrid=False),
+        font=dict(size=14)
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+
+# Page Aspects Légaux avec effets
+def legal_page():
+    st.markdown("<div class='section-header'>Aspectos Legales y Organizativos</div>", unsafe_allow_html=True)
+    
+    legal_aspects = [
+        {"title": "Habilitación Sanitaria", "icon": "📋", "desc": "Certificaciones requeridas para operar en el sector salud."},
+        {"title": "Protección de Datos", "icon": "🔒", "desc": "Cumplimiento con la ley de protección de datos personales."},
+        {"title": "Convenios con Obras Sociales", "icon": "🤝", "desc": "Regulaciones para acuerdos con aseguradoras."}
+    ]
+    
+    cols = st.columns(3)
+    for i, aspect in enumerate(legal_aspects):
+        with cols[i]:
+            st.markdown(f"""
+            <div class='feature-card' style='animation: fadeIn {0.5 + i*0.3}s ease;'>
+                <div style="font-size: 2em; margin-bottom: 10px;">{aspect['icon']}</div>
+                <h3>{aspect['title']}</h3>
+                <p>{aspect['desc']}</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+# Page Durabilité avec effets
+def sustainability_page():
+    st.markdown("<div class='section-header'>Responsabilidad Social y Ambiental</div>", unsafe_allow_html=True)
+    
+    sustainability_data = {
+        "Transporte Ecológico": {"value": 75, "unit": "%", "icon": "🚲"},
+        "Reducción de Residuos": {"value": 40, "unit": "%", "icon": "♻️"},
+        "Energías Renovables": {"value": 60, "unit": "%", "icon": "☀️"}
+    }
+    
+    cols = st.columns(3)
+    for i, (name, data) in enumerate(sustainability_data.items()):
+        with cols[i]:
+            st.markdown(f"""
+            <div class='feature-card' style='text-align: center; animation: slideIn {0.5 + i*0.3}s ease;'>
+                <div style="font-size: 2.5em;">{data['icon']}</div>
+                <h3>{name}</h3>
+                <div style="font-size: 2em; font-weight: bold; color: #0083B8;">
+                    {data['value']}{data['unit']}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
 # Page Contact avec effets
 def contact_page():
     st.markdown("<div class='section-header'>Contacto</div>", unsafe_allow_html=True)
     
-    # Formulaire stylisé
-    with st.container():
-        st.markdown("""
-        <div style="
-            background: rgba(255,255,255,0.9);
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            animation: slideIn 1s ease;
-        ">
-        """, unsafe_allow_html=True)
+    with st.form(key="contact_form"):
+        cols = st.columns(2)
+        with cols[0]:
+            st.text_input("Nombre completo", key="contact_name")
+            st.text_input("Correo electrónico", key="contact_email")
+        with cols[1]:
+            st.selectbox("Tema", ["Consulta general", "Soporte técnico"], key="contact_topic")
+            st.text_area("Mensaje", height=100, key="contact_message")
         
-        with st.form(key="contact_form"):
-            cols = st.columns(2)
-            with cols[0]:
-                st.text_input("Nombre completo", key="contact_name")
-                st.text_input("Correo electrónico", key="contact_email")
-            with cols[1]:
-                st.selectbox("Tema", ["Consulta general", "Soporte técnico"], key="contact_topic")
-                st.text_area("Mensaje", height=100, key="contact_message")
-            
-            # Bouton animé
-            if st.form_submit_button("Enviar mensaje ✉️", type="primary"):
-                st.balloons()
-                st.success("¡Mensaje enviado con éxito!")
-        
-        st.markdown("</div>", unsafe_allow_html=True)
+        if st.form_submit_button("Enviar mensaje", type="primary"):
+            st.success("¡Gracias por contactarnos!")
+            st.balloons()
 
 # Application principale
 def main():
