@@ -70,6 +70,7 @@ def create_nav_menu():
         menu_icon="cast",
         default_index=0,
         orientation="horizontal",
+        key="main_nav_menu",
         styles={
             "container": {"padding": "0!important", "background-color": "#f0f0f0"},
             "icon": {"color": "#0083B8", "font-size": "14px"}, 
@@ -90,7 +91,7 @@ def display_header():
 def home_page():
     st.markdown("<div class='section-header'>Bienvenido a MediPedido</div>", unsafe_allow_html=True)
     
-    col1, col2 = st.columns([3, 2])
+    col1, col2 = st.columns([3, 2], gap="large")
     
     with col1:
         st.markdown("""
@@ -137,7 +138,7 @@ def home_page():
     
     st.markdown("<div class='section-header'>¿Por qué elegimos Argentina?</div>", unsafe_allow_html=True)
     
-    col1, col2 = st.columns(2)
+    col1, col2 = st.columns(2, gap="large")
     with col1:
         st.markdown("""
         <div class='info-box'>
@@ -164,10 +165,10 @@ def home_page():
 def services_page():
     st.markdown("<div class='section-header'>Nuestros Servicios</div>", unsafe_allow_html=True)
     
-    tabs = st.tabs(["Consultas a Domicilio", "Telemedicina", "Servicios Especializados", "Modelo de Negocio"])
+    tabs = st.tabs(["Consultas a Domicilio", "Telemedicina", "Servicios Especializados", "Modelo de Negocio"], key="services_tabs")
     
     with tabs[0]:
-        col1, col2 = st.columns([2, 3])
+        col1, col2 = st.columns([2, 3], gap="large")
         
         with col1:
             st.markdown("""
@@ -182,10 +183,12 @@ def services_page():
             """, unsafe_allow_html=True)
         
         with col2:
-            st.image("https://via.placeholder.com/600x300?text=Consultas+Médicas+a+Domicilio", caption="Médicos profesionales a tu servicio")
+            st.image("https://via.placeholder.com/600x300?text=Consultas+Médicas+a+Domicilio", 
+                   caption="Médicos profesionales a tu servicio",
+                   use_column_width=True)
     
     with tabs[1]:
-        col1, col2 = st.columns([3, 2])
+        col1, col2 = st.columns([3, 2], gap="large")
         
         with col1:
             st.markdown("""
@@ -200,16 +203,18 @@ def services_page():
             """, unsafe_allow_html=True)
         
         with col2:
-            st.image("https://via.placeholder.com/500x300?text=Telemedicina", caption="Consultas médicas virtuales")
+            st.image("https://via.placeholder.com/500x300?text=Telemedicina", 
+                   caption="Consultas médicas virtuales",
+                   use_column_width=True)
     
     with tabs[2]:
         st.markdown("""
         <div class='sub-header'>Servicios Médicos Especializados</div>
         """, unsafe_allow_html=True)
         
-        col1, col2, col3 = st.columns(3)
+        cols = st.columns(3, gap="large")
         
-        with col1:
+        with cols[0]:
             st.markdown("""
             <div class='feature-card'>
                 <h3>👶 Pediatría</h3>
@@ -221,7 +226,7 @@ def services_page():
             </div>
             """, unsafe_allow_html=True)
         
-        with col2:
+        with cols[1]:
             st.markdown("""
             <div class='feature-card'>
                 <h3>👵 Geriatría</h3>
@@ -233,7 +238,7 @@ def services_page():
             </div>
             """, unsafe_allow_html=True)
         
-        with col3:
+        with cols[2]:
             st.markdown("""
             <div class='feature-card'>
                 <h3>💊 Nutrición</h3>
@@ -248,9 +253,9 @@ def services_page():
     with tabs[3]:
         st.markdown("<div class='sub-header'>Modelo de Negocio</div>", unsafe_allow_html=True)
         
-        col1, col2 = st.columns(2)
+        cols = st.columns(2, gap="large")
         
-        with col1:
+        with cols[0]:
             st.markdown("""
             <div class='info-box'>
                 <h3>Alianzas con Obras Sociales</h3>
@@ -263,7 +268,7 @@ def services_page():
             </div>
             """, unsafe_allow_html=True)
         
-        with col2:
+        with cols[1]:
             st.markdown("""
             <div class='info-box'>
                 <h3>Beneficios clave</h3>
@@ -291,9 +296,9 @@ def market_page():
         'Demanda (%)': [40, 25, 15, 12, 8]
     })
     
-    col1, col2 = st.columns([3, 2])
+    cols = st.columns([3, 2], gap="large")
     
-    with col1:
+    with cols[0]:
         st.markdown("""
         <div class='info-box'>
             <div class='sub-header'>Tendencias del Mercado</div>
@@ -306,17 +311,17 @@ def market_page():
         </div>
         """, unsafe_allow_html=True)
     
-    with col2:
+    with cols[1]:
         st.markdown("<div class='sub-header'>Penetración de Smartphones en Argentina</div>", unsafe_allow_html=True)
         fig = px.line(datos_penetracion, x='Año', y='Penetración (%)', markers=True)
         fig.update_layout(height=300)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, key="penetracion_chart")
     
     st.markdown("<div class='sub-header'>Oportunidades y Desafíos</div>", unsafe_allow_html=True)
     
-    col1, col2, col3 = st.columns(3)
+    cols = st.columns(3, gap="large")
     
-    with col1:
+    with cols[0]:
         st.markdown("""
         <div class='feature-card'>
             <h3>🚀 Oportunidades</h3>
@@ -328,7 +333,7 @@ def market_page():
         </div>
         """, unsafe_allow_html=True)
     
-    with col2:
+    with cols[1]:
         st.markdown("""
         <div class='feature-card'>
             <h3>⚠️ Desafíos</h3>
@@ -340,7 +345,7 @@ def market_page():
         </div>
         """, unsafe_allow_html=True)
     
-    with col3:
+    with cols[2]:
         st.markdown("""
         <div class='feature-card'>
             <h3>🎯 Estrategias</h3>
@@ -355,7 +360,7 @@ def market_page():
     st.markdown("<div class='sub-header'>Demanda por Tipo de Servicio</div>", unsafe_allow_html=True)
     fig = px.pie(datos_demanda, values='Demanda (%)', names='Servicio', hole=0.4)
     fig.update_layout(height=400)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, key="demanda_chart")
 
 # Página de aspectos legales
 def legal_page():
@@ -367,9 +372,9 @@ def legal_page():
     </div>
     """, unsafe_allow_html=True)
     
-    col1, col2 = st.columns(2)
+    cols = st.columns(2, gap="large")
     
-    with col1:
+    with cols[0]:
         st.markdown("""
         <div class='feature-card'>
             <h3>📋 Habilitación Sanitaria</h3>
@@ -387,7 +392,7 @@ def legal_page():
         </div>
         """, unsafe_allow_html=True)
     
-    with col2:
+    with cols[1]:
         st.markdown("""
         <div class='feature-card'>
             <h3>📱 Regulación de Telemedicina</h3>
@@ -414,10 +419,11 @@ def legal_page():
     }
     df_timeline = pd.DataFrame(timeline_data)
     
-    fig = px.timeline(df_timeline, x_start='Mes de inicio', x_end=df_timeline['Mes de inicio'] + df_timeline['Duración (meses)'], 
-                      y='Fase', color='Fase')
+    fig = px.timeline(df_timeline, x_start='Mes de inicio', 
+                     x_end=df_timeline['Mes de inicio'] + df_timeline['Duración (meses)'], 
+                     y='Fase', color='Fase')
     fig.update_layout(xaxis_title='Mes del proyecto', height=300)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, key="timeline_chart")
 
 # Página de sostenibilidad
 def sustainability_page():
@@ -429,12 +435,12 @@ def sustainability_page():
     </div>
     """, unsafe_allow_html=True)
     
-    tabs = st.tabs(["Movilidad Sostenible", "Gestión de Residuos", "Compromiso Social", "Transparencia"])
+    tabs = st.tabs(["Movilidad Sostenible", "Gestión de Residuos", "Compromiso Social", "Transparencia"], key="sustainability_tabs")
     
     with tabs[0]:
-        col1, col2 = st.columns([2, 2])
+        cols = st.columns([2, 2], gap="large")
         
-        with col1:
+        with cols[0]:
             st.markdown("""
             <div class='sub-header'>Transporte Sostenible</div>
             <p>Incentivamos a nuestros profesionales médicos a utilizar medios de transporte sostenibles para reducir la huella de carbono de nuestros servicios a domicilio:</p>
@@ -446,7 +452,7 @@ def sustainability_page():
             </ul>
             """, unsafe_allow_html=True)
         
-        with col2:
+        with cols[1]:
             transportes = {
                 'Medio': ['Automóvil eléctrico', 'Transporte público', 'Bicicleta', 'A pie', 'Automóvil tradicional'],
                 'Porcentaje': [30, 25, 20, 15, 10]
@@ -456,7 +462,7 @@ def sustainability_page():
             fig = px.bar(df_transportes, x='Medio', y='Porcentaje', color='Porcentaje',
                         color_continuous_scale='Viridis')
             fig.update_layout(height=300, title='Distribución de medios de transporte (objetivo)')
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, key="transport_chart")
     
     with tabs[1]:
         st.markdown("""
@@ -464,9 +470,9 @@ def sustainability_page():
         <p>Implementamos prácticas sostenibles para el manejo de residuos generados durante la atención médica a domicilio:</p>
         """, unsafe_allow_html=True)
         
-        col1, col2, col3 = st.columns(3)
+        cols = st.columns(3, gap="large")
         
-        with col1:
+        with cols[0]:
             st.markdown("""
             <div class='feature-card'>
                 <h3>♻️ Separación y Reciclaje</h3>
@@ -474,7 +480,7 @@ def sustainability_page():
             </div>
             """, unsafe_allow_html=True)
         
-        with col2:
+        with cols[1]:
             st.markdown("""
             <div class='feature-card'>
                 <h3>🔬 Gestión de Residuos Peligrosos</h3>
@@ -482,7 +488,7 @@ def sustainability_page():
             </div>
             """, unsafe_allow_html=True)
         
-        with col3:
+        with cols[2]:
             st.markdown("""
             <div class='feature-card'>
                 <h3>📊 Monitoreo y Reducción</h3>
@@ -496,9 +502,9 @@ def sustainability_page():
         <p>Nuestro compromiso social se materializa a través de diversas iniciativas:</p>
         """, unsafe_allow_html=True)
         
-        col1, col2 = st.columns(2)
+        cols = st.columns(2, gap="large")
         
-        with col1:
+        with cols[0]:
             st.markdown("""
             <div class='feature-card'>
                 <h3>🏥 Atención Gratuita</h3>
@@ -511,7 +517,7 @@ def sustainability_page():
             </div>
             """, unsafe_allow_html=True)
         
-        with col2:
+        with cols[1]:
             st.markdown("""
             <div class='feature-card'>
                 <h3>💉 Campañas de Vacunación</h3>
@@ -544,9 +550,9 @@ def sustainability_page():
 def contact_page():
     st.markdown("<div class='section-header'>Contacto</div>", unsafe_allow_html=True)
     
-    col1, col2 = st.columns([2, 3])
+    cols = st.columns([2, 3], gap="large")
     
-    with col1:
+    with cols[0]:
         st.markdown("""
         <div class='info-box'>
             <div class='sub-header'>Información de Contacto</div>
@@ -566,20 +572,21 @@ def contact_page():
         </div>
         """, unsafe_allow_html=True)
     
-    with col2:
+    with cols[1]:
         st.markdown("<div class='sub-header'>Envíanos un mensaje</div>", unsafe_allow_html=True)
         
-        nombre = st.text_input("Nombre completo")
-        email = st.text_input("Correo electrónico")
-        tema = st.selectbox("Tema", ["Consulta general", "Soporte técnico", "Trabaja con nosotros", "Alianzas comerciales", "Otro"])
-        mensaje = st.text_area("Mensaje", height=150)
-        
-        col1, col2 = st.columns([1, 4])
-        with col1:
-            enviar = st.button("Enviar mensaje", type="primary")
-        
-        if enviar:
-            st.success("¡Gracias por contactarnos! Te responderemos a la brevedad.")
+        with st.form(key="contact_form"):
+            nombre = st.text_input("Nombre completo", key="contact_nombre")
+            email = st.text_input("Correo electrónico", key="contact_email")
+            tema = st.selectbox("Tema", 
+                              ["Consulta general", "Soporte técnico", "Trabaja con nosotros", "Alianzas comerciales", "Otro"],
+                              key="contact_tema")
+            mensaje = st.text_area("Mensaje", height=150, key="contact_mensaje")
+            
+            enviar = st.form_submit_button("Enviar mensaje", type="primary")
+            
+            if enviar:
+                st.success("¡Gracias por contactarnos! Te responderemos a la brevedad.")
 
 # Función principal
 def main():
